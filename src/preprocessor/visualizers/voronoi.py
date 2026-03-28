@@ -12,19 +12,20 @@ class VoronoiAreaVisualizer(BaseVisualizer):
         super().__init__(court, figsize)
         self.voronoi_processor = VoronoiPreProcessor(court)
 
-    def draw_voronoi_animation(self, data: pd.DataFrame, interval=1000, title=None):
+    def draw_voronoi_animation(self, data: pd.DataFrame, interval=1000, title=None, precomputed_results=None):
         """
         Draw an animation of Voronoi regions over time.
         :param data: DataFrame containing player positions.
         :param interval: Time interval between frames in milliseconds.
         :param title: Optional title for the plot.
+        :param precomputed_results: Optional precomputed Voronoi results from VoronoiPreProcessor.compute_all_frames().
         """
         if self.fig is None or self.ax is None:
             self.setup_canvas(title)
 
         def init():
             return []
-        
+
         def update(frame):
             self.ax.clear()
             self.court._draw_court(self.ax)
@@ -32,9 +33,34 @@ class VoronoiAreaVisualizer(BaseVisualizer):
                 [data[f'x_{player}'][frame], data[f'y_{player}'][frame]]
                 for player in self.court.players
             ])
-            self._draw_voronoi_court(points, self.ax, title)
+
+            if precomputed_results is not None:
+                (player_ridge_vertices, clipped_vertices), _ = precomputed_results[frame]
+                for player_idx, vertices in player_ridge_vertices.items():
+                    polygon = plt.Polygon(
+                        clipped_vertices[vertices],
+                        closed=True,
+                        alpha=0.3,
+                        label=self.court.players[player_idx],
+                        color=self.court.colors[player_idx]
+                    )
+                    self.ax.add_patch(polygon)
+                for player_idx, vertex in enumerate(self.court.players):
+                    self.ax.plot(
+                        np.clip(points[player_idx, 0], 0, self.court.court_width),
+                        np.clip(points[player_idx, 1], 0, self.court.court_height),
+                        'o',
+                        color=self.court.colors[player_idx],
+                        markersize=7,
+                        label=vertex
+                    )
+                if title:
+                    self.ax.set_title(title)
+            else:
+                self._draw_voronoi_court(points, self.ax, title)
+
             return self.ax.patches + self.ax.lines
-        
+
         anim = FuncAnimation(
             self.fig,
             update,

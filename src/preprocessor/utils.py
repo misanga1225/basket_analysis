@@ -36,8 +36,7 @@ def make_dir(dir_name: str) -> None:
     Create a directory if it does not exist.
     :param dir_name: Directory to create.
     """
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    os.makedirs(dir_name, exist_ok=True)
     print(f"Directory '{dir_name}' is ready.")
 
 def show_plot(fig) -> None:
@@ -74,7 +73,7 @@ def save_voronoi_animation(anim, dir_name: str, file_name: str) -> None:
     if not file_name.endswith('.mp4'):
         file_name += '.mp4'
     file_path = os.path.join(dir_name, file_name)
-    anim.save(file_path, fps=10, extra_args=['-vcodec', 'libx264'], writer='ffmpeg', dpi=300)
+    anim.save(file_path, fps=10, extra_args=['-vcodec', 'libx264'], writer='ffmpeg', dpi=100)
     plt.close(anim._fig)
 
 def save_pickle(obj, dir_name: str, file_name: str) -> None:

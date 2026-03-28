@@ -13,22 +13,37 @@ class VoronoiPreProcessor():
         self.court = court
         self.border = box(0, 0, court.court_width, court.court_height)
 
-    def get_players_area_trajectories(self, data: pd.DataFrame):
+    def compute_all_frames(self, data: pd.DataFrame):
         """
-        Calculate Voronoi areas for players based on their trajectories.
+        Compute Voronoi regions and areas for all frames at once.
         :param data: DataFrame containing player positions.
-        :return: Dictionary mapping player names to their Voronoi area trajectories.
+        :return: List of ((player_ridge_vertices, clipped_vertices), voronoi_areas) per frame.
         """
-        players_area_trajectories = {}
         player_names = self.court.players
-
+        results = []
         for frame in range(len(data)):
             points = np.array([
                 [data[f'x_{player}'][frame], data[f'y_{player}'][frame]]
                 for player in player_names
             ])
-            (player_ridge_vertices, clipped_vertices), voronoi_areas = self.compute_voronoi_regions_and_areas(points)
+            result = self.compute_voronoi_regions_and_areas(points)
+            results.append(result)
+        return results
 
+    def get_players_area_trajectories(self, data: pd.DataFrame, precomputed_results=None):
+        """
+        Calculate Voronoi areas for players based on their trajectories.
+        :param data: DataFrame containing player positions.
+        :param precomputed_results: Optional precomputed Voronoi results from compute_all_frames().
+        :return: Dictionary mapping player names to their Voronoi area trajectories.
+        """
+        players_area_trajectories = {}
+        player_names = self.court.players
+
+        if precomputed_results is None:
+            precomputed_results = self.compute_all_frames(data)
+
+        for (player_ridge_vertices, clipped_vertices), voronoi_areas in precomputed_results:
             if not self._check_area_validity(voronoi_areas):
                 raise ValueError("Voronoi areas do not match the court area. Please check the input points.")
 
