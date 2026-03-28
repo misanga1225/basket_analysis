@@ -3,4 +3,6 @@ __pycache__
 **processed_data**
 **_dataset**
 **results**
+*.zip
+.ipynb_checkpoints
 CLAUDE.md
