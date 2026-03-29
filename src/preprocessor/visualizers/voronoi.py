@@ -55,9 +55,12 @@ class VoronoiAreaVisualizer(BaseVisualizer):
                         label=vertex
                     )
                 if title:
-                    self.ax.set_title(title)
+                    elapsed = frame * 0.05
+                    self.ax.set_title(f"{title}  {elapsed:.2f}s")
             else:
-                self._draw_voronoi_court(points, self.ax, title)
+                elapsed = frame * 0.05
+                display_title = f"{title}  {elapsed:.2f}s" if title else None
+                self._draw_voronoi_court(points, self.ax, display_title)
 
             return self.ax.patches + self.ax.lines
 

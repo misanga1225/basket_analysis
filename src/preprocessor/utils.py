@@ -73,7 +73,7 @@ def save_voronoi_animation(anim, dir_name: str, file_name: str) -> None:
     if not file_name.endswith('.mp4'):
         file_name += '.mp4'
     file_path = os.path.join(dir_name, file_name)
-    anim.save(file_path, fps=10, extra_args=['-vcodec', 'libx264'], writer='ffmpeg', dpi=100)
+    anim.save(file_path, fps=20, extra_args=['-vcodec', 'libx264'], writer='ffmpeg', dpi=100)
     plt.close(anim._fig)
 
 def save_pickle(obj, dir_name: str, file_name: str) -> None:
