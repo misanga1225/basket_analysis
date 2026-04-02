@@ -5,7 +5,7 @@ PLAYERS = ["O1red", "O2blue", "O3pink", "D1black", "D2orange", "D3yellow"]
 COLORS = {
     "O1red": "red",
     "O2blue": "blue",
-    "O3pink": "pink",
+    "O3pink": "deeppink",
     "D1black": "black",
     "D2orange": "orange",
     "D3yellow": "yellow",
@@ -33,17 +33,17 @@ def plot_trial_panel(
             ax.plot(
                 idx,
                 y_val,
-                "o",
-                markerfacecolor="none",
-                markeredgecolor="pink",
-                markersize=8,
+                "x",
+                markeredgecolor="deeppink",
+                markersize=16,
                 markeredgewidth=3,
             )
 
-    ax.set_title(title)
-    ax.set_xlabel("Frame")
-    ax.set_ylabel("Area (m²)")
-    ax.legend(fontsize="small", loc="upper right")
+    ax.set_title(title, fontsize=22)
+    ax.set_xlabel("Frame", fontsize=20)
+    ax.set_ylabel("Area (m²)", fontsize=20)
+    ax.tick_params(axis="both", labelsize=18)
+    ax.legend(fontsize=16, loc="upper right")
     ax.grid(True)
 
     if xlim is not None:
