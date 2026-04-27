@@ -7,3 +7,6 @@ __pycache__
 .ipynb_checkpoints
 CLAUDE.md
 pic.png
+# ローカル作業ログ・検証スクリプト
+tasks/
+doc.txt

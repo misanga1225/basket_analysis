@@ -7,12 +7,16 @@ import pickle
 def get_csv_file_path(dir_name: str) -> list:
     """
     Get all sorted file paths in the given directory.
+    Event CSVs (suffix `_event.csv`) are excluded — they describe play events,
+    not player trajectories, and would break downstream column lookups.
     :param dir_name: Directory to search for CSV files.
     :return: List of file paths.
     """
     file_paths = []
-    
+
     for file_name in os.listdir(dir_name):
+        if file_name.endswith('_event.csv'):
+            continue
         if file_name.endswith('.csv'):
             file_paths.append(os.path.join(dir_name, file_name))
         else:

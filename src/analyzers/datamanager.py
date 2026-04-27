@@ -10,9 +10,10 @@ class DataManager:
     """
     Class to manage all game data using pickle.
     """
-    def __init__(self, data_dir: str):
+    def __init__(self, data_dir: str, pickle_filename: str = 'players_area_trajectories.pkl'):
         """
         :param data_dir: Directory containing the pickle files.
+        :param pickle_filename: Target pickle filename (or glob pattern) inside each game directory.
         """
         self._trajectories = {}
         data_path = Path(data_dir)
@@ -29,7 +30,7 @@ class DataManager:
                 game_name = game_dir.name
                 self._trajectories[match_type][game_name] = {}
 
-                for file_path in game_dir.glob('*.pkl'):
+                for file_path in game_dir.glob(pickle_filename):
                     with open(file_path, 'rb') as f:
                         raw_data = pickle.load(f)
                         self._trajectories[match_type][game_name] = {

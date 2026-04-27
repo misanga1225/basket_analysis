@@ -29,6 +29,13 @@
   - ピンクの線色をdeeppinkに変更（印刷時の視認性向上）
   - catchマーカーを○から×に変更しサイズを拡大
   - フォントサイズを拡大（タイトル・軸ラベル・目盛り・凡例）
+- 2026/04/27：進行方向ベース 有効ボロノイ領域（Effective Voronoi）を追加
+  - Shimizu & Okada (2025) の中央差分による進行方向ベクトルを軸とする視野扇形で通常ボロノイ領域を切り出し、`V_eff(t) = V(t) ∩ W(t; θ, R)` を算出
+  - 視野半角 θ = `[30, 45, 60, 90]` deg で出力（複数値を pkl 別ファイルに保存）
+  - 扇形半径 R = 2000 cm（コート対角を超える固定値）、ゼロ速度時は前時刻の方向を継承
+  - 前処理パイプライン（`preprocess.ipynb`）に統合：`effective_area_trajectories_theta{θ}.pkl` と `*_effective_voronoi_45deg.mp4` を生成
+  - 新規 analyzer `analyzers/effective_voronoi_timeseries/`：θ ごとの 3×3 グリッド時系列グラフを出力
+  - `DataManager` に `pickle_filename` 引数を追加（複数 pkl 共存対応）
 
 ## ======== 1. 環境設定 ========
 
@@ -42,8 +49,6 @@
 # python >= 3.12
 pip install -r requirements.txt
 ```
-
-MacOSでの環境をそのままfreezeしただけなので使用環境に合わせてインストールできないものがあるかもしれませんが，適宜対応してください．
 
 ---
 
@@ -79,8 +84,9 @@ MacOSでの環境をそのままfreezeしただけなので使用環境に合わ
     - features：特徴量抽出
     - t_test：t検定
     - trajectory：軌跡分析
+    - voronoi_timeseries：ボロノイ領域の時系列変化分析
   - preprocessor：データ前処理用コード
-    - courts：コート設計用コード
+    - courts：コート設計用コード（court.py：コート描画基盤，basket.py：FIBA 3x3コート定義）
     - processors：ボロノイ領域の算出など
     - visualizers：映像化や可視化用コード
 - README.md：説明用ファイル
@@ -95,9 +101,13 @@ MacOSでの環境をそのままfreezeしただけなので使用環境に合わ
 - features：特徴量抽出
 - t_test：t検定
 - trajectory：軌跡分析
+- voronoi_timeseries：ボロノイ領域の時系列変化分析
 
-以上の5つのディレクトリはデータ分析用に作成されたものです．
-内容物は以下の3つのファイルから構成されています．
+以上の6つのディレクトリはデータ分析用に作成されたものです．
+
+#### 基本構成（clustering, cross_correlation, t_test）
+
+以下の3つのファイルから構成されています．
 
 - main.ipynb：分析時実行コード
 - stats.py：統計量算出用コード
@@ -107,6 +117,20 @@ drawer.py内でstats.py内で定義された統計量を用いて描画処理を
 したがって算出方法の変更や統計値を直接用いた処理（例えばExcelへの出力など）はstats.pyを編集することで可能となります．
 
 対して描画方法の変更はdrawer.pyを編集することで可能となり，グラフの色や凡例，ラベルなどの表示内容を変更する場合はdrawer.pyを編集してください．
+
+#### features, trajectory
+
+stats.pyを持たず，main.ipynbとdrawer.pyで構成されています．trajectoryにはtest.ipynb（動作確認用）も含まれます．
+
+#### voronoi_timeseries
+
+他の分析ディレクトリとは異なる構成を持ちます．
+
+- main.ipynb：分析時実行コード
+- run.py：main.ipynbから呼び出される実行スクリプト（データ読み込み〜グラフ保存の一連処理）
+- drawer.py：セッション単位の3×3グリッド折れ線グラフ描画
+- event_loader.py：イベントCSVからNo.3 (pink)の最初のcatchフレームを取得するユーティリティ
+- results/：生成されたグラフ画像の保存先
 
 ## ======== 3. 機能に関して ========
 
