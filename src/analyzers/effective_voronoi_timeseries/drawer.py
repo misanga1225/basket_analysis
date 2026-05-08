@@ -57,7 +57,6 @@ def plot_trial_panel(
 def plot_session_grid(
     trials_data: list[dict],
     ylim: float,
-    xlim: float,
     save_path: str,
     suptitle: str | None = None,
     ylabel: str = "Effective Area (m²)",
@@ -66,13 +65,15 @@ def plot_session_grid(
     axes = axes.flatten()
 
     for i, trial in enumerate(trials_data):
+        pdata = trial["player_data"]
+        trial_xlim = len(next(iter(pdata.values()))) if pdata else None
         plot_trial_panel(
             ax=axes[i],
-            player_data=trial["player_data"],
+            player_data=pdata,
             title=trial["title"],
             catch_frame=trial["catch_frame"],
             ylim=ylim,
-            xlim=xlim,
+            xlim=trial_xlim,
             ylabel=ylabel,
         )
 
