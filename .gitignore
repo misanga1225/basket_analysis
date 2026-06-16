@@ -4,6 +4,10 @@ __pycache__
 **_dataset**
 **results**
 *.zip
+# 成果物zipはこの3つだけ追跡する（θ=30/45のグラフ、θ=45の動画）
+!effective_voronoi_theta30.zip
+!effective_voronoi_theta45.zip
+!effective_voronoi_45deg_videos.zip
 .ipynb_checkpoints
 CLAUDE.md
 pic.png

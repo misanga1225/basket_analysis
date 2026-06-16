@@ -1,164 +1,106 @@
-# 2025年度バスケットボール分析
+# バスケットボール分析 — セットアップ手順
+動作確認環境：**Windows 11 / macOS**、**Python 3.12**
 
-## 更新履歴（岡田担当分）
+---
 
-- 2026/03/28：前処理パイプラインの高速化
-  - Voronoi計算の重複排除，joblibによる並列処理（8並列）を導入
-  - 前処理時間を1時間以上から**約10分**に短縮
-- 2026/03/29：コート座標と動画表示の改善
-  - コート座標をFIBA 3x3標準に修正（3Pライン・ペイントエリア・アーク・フリースローサークル）
-  - ボロノイ動画に経過時間（秒）を表示するよう変更
-  - 動画の再生速度を実時間に合わせて調整（fps=20, interval=50ms）
-  - 動画ファイル名を `{ゲーム名}_voronoi.mp4` に変更
-- 2026/04/01：ボロノイ領域の時系列変化グラフを追加
-  - 試合単位で6選手のボロノイ領域面積の折れ線グラフを出力（3×3グリッド，セッション単位）
-  - イベントデータからNo.3 (pink)の最初のcatchフレームに○マーカーを表示
-  - 4ゲーム×3セッション＝計12画像を生成
-- 2026/04/02：ボロノイ時系列グラフの視認性を改善
-  - ピンクの線色をdeeppinkに変更（印刷時の視認性向上）
-  - catchマーカーを○から×に変更しサイズを拡大
-  - フォントサイズを拡大（タイトル・軸ラベル・目盛り・凡例）
-- 2026/04/27：進行方向ベース 有効ボロノイ領域（Effective Voronoi）を追加
-  - Shimizu & Okada (2025) の中央差分による進行方向ベクトルを軸とする視野扇形で通常ボロノイ領域を切り出し、`V_eff(t) = V(t) ∩ W(t; θ, R)` を算出
-  - 視野半角 θ = `[30, 45, 60, 90]` deg で出力（複数値を pkl 別ファイルに保存）
-  - 扇形半径 R = 2000 cm（コート対角を超える固定値）、ゼロ速度時は前時刻の方向を継承
-  - 前処理パイプライン（`preprocess.ipynb`）に統合：`effective_area_trajectories_theta{θ}.pkl` と `*_effective_voronoi_45deg.mp4` を生成
-  - 新規 analyzer `analyzers/effective_voronoi_timeseries/`：θ ごとの 3×3 グリッド時系列グラフを出力
-  - `DataManager` に `pickle_filename` 引数を追加（複数 pkl 共存対応）
-
-## ======== 1. 環境設定 ========
-
-本リポジトリは**MacOS**および**Windows 11**，**Python 3.12**での動作を確認しています．
-
-### 1.1 Pythonパッケージのインストール
-
-- 以下のコマンドを実行しpythonパッケージのインストールを行います．
+## STEP 1. Python パッケージのインストール
 
 ```bash
-# python >= 3.12
 pip install -r requirements.txt
+```
+
+## STEP 2. ffmpeg のインストール
+
+動画（MP4）書き出しに必要。OSに合わせてインストールし、PATHを通す。
+
+- Windows：`winget install ffmpeg` または https://ffmpeg.org/ から取得
+- macOS：`brew install ffmpeg`
+- 確認：`ffmpeg -version` が表示されれば OK
+
+## STEP 3. 生データの配置
+
+生データはリポジトリに含まれない（`.gitignore` で除外）。
+**リポジトリ直下に `_dataset_yamaha/` を作り**、以下の CSV を置く。
+
+```
+basket_analysis/
+└─ _dataset_yamaha/
+   ├─ basket_G{g}-S{s}T{t}.csv         # 追跡座標（g=1..4, s=1..3, t=1..7 → 計84ファイル）
+   └─ basket_G{g}-S{s}T{t}_event.csv   # イベント（catch 等 → 計84ファイル）
+```
+
+- 追跡 CSV ヘッダ：`frame_number,x_O1red,y_O1red,x_O2blue,y_O2blue,x_O3pink,y_O3pink,x_D1black,y_D1black,x_D2orange,y_D2orange,x_D3yellow,y_D3yellow`
+- イベント CSV ヘッダ：`frame_number,O1_red,O2_blue,O3_pink,D1_black,D2_orange,D3_yellow`（catch したフレームの該当列に `catch`）
+
+## STEP 4. 前処理（動画・グラフ用データ・pkl を生成）
+
+`src/preprocessor/preprocess.ipynb` を開き、**「すべてのセルを実行（Run All）」** する。
+（`_dataset_yamaha` だけがあれば動く。他のデータセットが無くても自動でスキップする）
+
+CLI で実行する場合：
+
+```bash
+cd src/preprocessor
+jupyter nbconvert --to notebook --execute --inplace preprocess.ipynb
+```
+
+- 84試行 × 8並列で **約10分**。
+- 出力先：`src/analyzers/processed_data/G{n}/basket_G{g}-S{s}T{t}/`
+  - `..._voronoi.mp4` … 通常ボロノイ動画
+  - `..._effective_voronoi_45deg.mp4` … 有効ボロノイ動画（θ=45°）
+  - `basketball_court.png` … 軌跡画像
+  - `effective_area_trajectories_theta{30,45,60,90}.pkl` … 次の STEP で使うデータ
+
+> 動画は θ=45° のみ生成される。θ=30° の動画も必要なら、`preprocess.ipynb` 最終セルの `ANIM_THETA_DEG = 45` を `30` に変えて再実行する。
+
+## STEP 5. 平均有効ボロノイ領域の CSV 出力（静大形式）
+
+STEP 4 完了後に実行する。
+
+```bash
+python src/analyzers/effective_voronoi_timeseries/export_mean_voronoi.py
+```
+
+- 出力先：`analysis_output/`
+  - `voronoi_mean_theta30.csv` … θ=30° の結果
+  - `voronoi_mean_theta45.csv` … θ=45° の結果
+  - `voronoi_template.csv` … テンプレート（`Phase` / `Per_final` 列はここから引き継ぐ）
+- 列構成は `analysis_dataset_voronoi_shizudai.csv` と同じ（Game, Session, Trial, Phase, Per_final, O1〜D3）。
+- O1〜D3 は各試行の**平均有効ボロノイ領域 [m²]**（全フレーム平均・NaN 除外、小数第5位）。
+- そのまま静大形式の空欄にコピー＆ペーストできる。
+
+（参考）θ=30/45 の時系列グラフだけを描き直したい場合：
+
+```bash
+python src/analyzers/effective_voronoi_timeseries/run.py
+# 出力: src/analyzers/effective_voronoi_timeseries/results/*.png
 ```
 
 ---
 
-### 1.2 その他パッケージのインストール
+## 同梱の成果物（リポジトリに含まれる zip）
 
-- データの前処理にて**ffmpegを使用するためOSに合わせたインストールが必要**となります．
+再生成せずすぐ確認できるよう、以下を同梱している。
+
+| ファイル | 内容 |
+|---|---|
+| `effective_voronoi_theta30.zip` | θ=30° の時系列グラフ（12枚） |
+| `effective_voronoi_theta45.zip` | θ=45° の時系列グラフ（12枚） |
+| `effective_voronoi_45deg_videos.zip` | θ=45° の有効ボロノイ動画（84本） |
+| `analysis_output/voronoi_mean_theta{30,45}.csv` | 平均有効ボロノイ領域 CSV |
+
+通常ボロノイ動画・pkl などその他の中間生成物は、STEP 4 を実行すれば再生成される。
 
 ---
 
-### 1.3 データの前処理
+## ディレクトリ構成（要点のみ）
 
-- データの前処理用ファイル **src/preprocessor/preprocess.ipynb** を全て実行しデータの前処理を行ってください．
-  - 生データは **\_dataset...** ディレクトリに含まれています．
-  - **src/analyzers/processed_data** ディレクトリが生成され，各マッチ，各ゲーム毎にディレクトリが生成されていれば成功です．
-  - 前処理の実行には映像データへの加工が含まれるため，**約10分**かかります（joblib並列処理により高速化済み）．
-
----
-
-## ======== 2. ファイル構成 ========
-
-### 2.1 実行用ファイル
-
-- \_dataset：国体データセット
-- \_dataset_tokoha：常葉大学データセット
-- \_dataset_yamaha：静岡大学データセット
-- src：
-  - analyzers：分析時実行コード
-    - calculator.py：共通する計算処理系
-    - datamanager.py：前処理したデータを取り出すためのコード
-    - utils.py：共通するユーティリティ関数
-    - clustering：クラスタリング分析
-    - cross_correlation：相互相関分析
-    - features：特徴量抽出
-    - t_test：t検定
-    - trajectory：軌跡分析
-    - voronoi_timeseries：ボロノイ領域の時系列変化分析
-  - preprocessor：データ前処理用コード
-    - courts：コート設計用コード（court.py：コート描画基盤，basket.py：FIBA 3x3コート定義）
-    - processors：ボロノイ領域の算出など
-    - visualizers：映像化や可視化用コード
-- README.md：説明用ファイル
-- requirements.txt：必要パッケージ一覧
-
-実行用ファイルは一貫して **analyzers/\*\*/main.ipynb** にしてあります．
-
-### 2.2 分析用ディレクトリ
-
-- clustering：クラスタリング分析
-- cross_correlation：相互相関分析
-- features：特徴量抽出
-- t_test：t検定
-- trajectory：軌跡分析
-- voronoi_timeseries：ボロノイ領域の時系列変化分析
-
-以上の6つのディレクトリはデータ分析用に作成されたものです．
-
-#### 基本構成（clustering, cross_correlation, t_test）
-
-以下の3つのファイルから構成されています．
-
-- main.ipynb：分析時実行コード
-- stats.py：統計量算出用コード
-- drawer.py：分析結果描画処理用コード
-
-drawer.py内でstats.py内で定義された統計量を用いて描画処理を行います．
-したがって算出方法の変更や統計値を直接用いた処理（例えばExcelへの出力など）はstats.pyを編集することで可能となります．
-
-対して描画方法の変更はdrawer.pyを編集することで可能となり，グラフの色や凡例，ラベルなどの表示内容を変更する場合はdrawer.pyを編集してください．
-
-#### features, trajectory
-
-stats.pyを持たず，main.ipynbとdrawer.pyで構成されています．trajectoryにはtest.ipynb（動作確認用）も含まれます．
-
-#### voronoi_timeseries
-
-他の分析ディレクトリとは異なる構成を持ちます．
-
-- main.ipynb：分析時実行コード
-- run.py：main.ipynbから呼び出される実行スクリプト（データ読み込み〜グラフ保存の一連処理）
-- drawer.py：セッション単位の3×3グリッド折れ線グラフ描画
-- event_loader.py：イベントCSVからNo.3 (pink)の最初のcatchフレームを取得するユーティリティ
-- results/：生成されたグラフ画像の保存先
-
-## ======== 3. 機能に関して ========
-
-各種分析に使用するソースコードは **src/analyzers/\*\*** 内に保存されています．
-
-- drawer.py：分析結果描画処理用コード（描画時に必要な計算処理も内部で行います）
-- main.ipynb：分析時実行コード（preprocessing済みのデータがある場合に使用できる）
-- stats.py：統計量算出用コード（drawer.py内で用いられる計算処理は主にここから）
-
-分析項目を増やしたい場合は **src/analyzers** 内にディレクトリを新規作成し，**main.ipynb** と **stats.py** を追加してください．
-
-## ======== 4. 使用パッケージ ========
-
-- 相互相関係数の算出：https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.xcorr.html
-
-### 参考
-
-- https://data-analysis-stats.jp/%E6%A9%9F%E6%A2%B0%E5%AD%A6%E7%BF%92/dtwdynamic-time-warping%E5%8B%95%E7%9A%84%E6%99%82%E9%96%93%E4%BC%B8%E7%B8%AE%E6%B3%95/
-- https://kgt-blog.com/tech-22/2481/
-
-## ======== 5. 動作例 ========
-
-- 実際の動作は以下の通りです．（MacOS環境）
-
-### 5.1 前処理
-
-**初回動作時は約10分かかります（映像データの前処理があるため）．**
-
-- src/preprocessor/preprocess.ipynbを実行します．
-  ![データの前処理の画像](./fig/Preprocessing.png)
-
-図のように .ipynbファイルが実行されており，`processed_data`ディレクトリが生成され最下層のディレクトリに以下の3つが生成されていれば成功です．
-
-- {ゲーム名}_voronoi.mp4：ボールコート上のボロノイ領域の映像（経過時間表示付き，実時間再生）
-- basketball_court.png：ボールコートにプレイヤーの移動を重ねた画像
-- players_area_trajectories.pkl：各プレイヤーのボロノイ領域の変動データ（datamanager.pyで読み取るファイル）．データは階層化された辞書型のデータになっています．
-  - Key：マッチ識別子（例：Aチーム対Bチーム（AB））
-  - Value：
-    - Key：ゲーム識別子（例：セッション1ゲーム1（AB-S1T1））
-    - Value：
-      - Key：プレイヤー識別子（例：オフェンスの赤色のプレイヤ（O1red）
-      - Value：np.ndarray
+- `_dataset_yamaha/` … 生データ（STEP 3 で配置。git 管理外）
+- `src/preprocessor/preprocess.ipynb` … 前処理（STEP 4）
+- `src/analyzers/processed_data/` … 前処理の出力（動画・pkl 等。git 管理外）
+- `src/analyzers/effective_voronoi_timeseries/`
+  - `export_mean_voronoi.py` … 平均値 CSV 出力（STEP 5）
+  - `run.py` … 時系列グラフ出力
+  - `results/` … グラフ画像（git 管理外）
+- `analysis_output/` … CSV 出力先（git 管理対象）
+- `requirements.txt` … 必要パッケージ
